@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecteur de Liste Excel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .file-info {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .file-info span {
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .file-info strong {
+            color: #212529;
+        }
+
+        .controls {
+            padding: 20px 30px;
+            background: #fff;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 0.95em;
+            min-width: 200px;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-refresh {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-refresh:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f1f3f5;
+            color: #495057;
+        }
+
+        tbody tr {
+            transition: all 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+            transform: scale(1.01);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #6c757d;
+            font-size: 1.2em;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            margin: 30px;
+            border-radius: 6px;
+            border: 1px solid #f5c6cb;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .stats {
+            padding: 10px 30px;
+            background: #e9ecef;
+            color: #495057;
+            font-size: 0.9em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Lecteur de Liste Excel</h1>
+            <p>Affichage automatique de la dernière liste disponible</p>
+        </div>
+
+        <div id="fileInfo" class="file-info" style="display: none;">
+            <span><strong>Fichier:</strong> <span id="fileName">-</span></span>
+            <span><strong>Dernière modification:</strong> <span id="fileDate">-</span></span>
+            <span><strong>Lignes:</strong> <span id="rowCount">-</span></span>
+            <button class="btn-refresh" onclick="loadData()">🔄 Actualiser</button>
+        </div>
+
+        <div class="controls" id="controls" style="display: none;">
+            <div class="filter-group">
+                <label>Recherche globale:</label>
+                <input type="text" id="globalSearch" placeholder="Rechercher dans toutes les colonnes...">
+                
+                <label>Filtrer par colonne:</label>
+                <select id="columnSelect">
+                    <option value="">-- Toutes les colonnes --</option>
+                </select>
+                <input type="text" id="columnSearch" placeholder="Valeur à rechercher..." disabled>
+            </div>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <span id="statsText">0 ligne(s) affichée(s)</span>
+        </div>
+
+        <div class="table-container">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Chargement des données...</p>
+            </div>
+            <div id="error" class="error" style="display: none;"></div>
+            <table id="dataTable" style="display: none;">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <div id="noResults" class="no-results" style="display: none;">
+                Aucun résultat ne correspond à vos critères de recherche.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let filteredData = [];
+        let columns = [];
+
+        async function loadData() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('dataTable').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/data');
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Erreur lors du chargement');
+                }
+
+                allData = result.data;
+                filteredData = [...allData];
+                columns = result.file_info.columns;
+
+                // Afficher les infos du fichier
+                document.getElementById('fileName').textContent = result.file_info.filename;
+                document.getElementById('fileDate').textContent = result.file_info.modified;
+                document.getElementById('rowCount').textContent = result.file_info.rows;
+                document.getElementById('fileInfo').style.display = 'flex';
+                document.getElementById('controls').style.display = 'block';
+                document.getElementById('stats').style.display = 'block';
+
+                // Remplir le sélecteur de colonnes
+                const columnSelect = document.getElementById('columnSelect');
+                columnSelect.innerHTML = '<option value="">-- Toutes les colonnes --</option>';
+                columns.forEach(col => {
+                    const option = document.createElement('option');
+                    option.value = col;
+                    option.textContent = col;
+                    columnSelect.appendChild(option);
+                });
+
+                renderTable();
+                document.getElementById('loading').style.display = 'none';
+
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = error.message;
+            }
+        }
+
+        function renderTable() {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            const noResults = document.getElementById('noResults');
+            const dataTable = document.getElementById('dataTable');
+
+            // Créer l'en-tête
+            thead.innerHTML = '';
+            const headerRow = document.createElement('tr');
+            columns.forEach(col => {
+                const th = document.createElement('th');
+                th.textContent = col;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            // Créer les lignes
+            tbody.innerHTML = '';
+            
+            if (filteredData.length === 0) {
+                dataTable.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                dataTable.style.display = 'table';
+                noResults.style.display = 'none';
+
+                filteredData.forEach(row => {
+                    const tr = document.createElement('tr');
+                    columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row[col] || '';
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Mettre à jour les stats
+            document.getElementById('statsText').textContent = 
+                `${filteredData.length} ligne(s) affichée(s) sur ${allData.length}`;
+        }
+
+        function applyFilters() {
+            const globalSearch = document.getElementById('globalSearch').value.toLowerCase();
+            const columnSelect = document.getElementById('columnSelect').value;
+            const columnSearch = document.getElementById('columnSearch').value.toLowerCase();
+
+            filteredData = allData.filter(row => {
+                // Filtre global
+                if (globalSearch) {
+                    const matchGlobal = columns.some(col => 
+                        String(row[col]).toLowerCase().includes(globalSearch)
+                    );
+                    if (!matchGlobal) return false;
+                }
+
+                // Filtre par colonne spécifique
+                if (columnSelect && columnSearch) {
+                    const matchColumn = String(row[columnSelect]).toLowerCase().includes(columnSearch);
+                    if (!matchColumn) return false;
+                }
+
+                return true;
+            });
+
+            renderTable();
+        }
+
+        // Événements
+        document.getElementById('globalSearch').addEventListener('input', applyFilters);
+        document.getElementById('columnSearch').addEventListener('input', applyFilters);
+        document.getElementById('columnSelect').addEventListener('change', function() {
+            const columnSearch = document.getElementById('columnSearch');
+            columnSearch.disabled = !this.value;
+            if (!this.value) {
+                columnSearch.value = '';
+                applyFilters();
+            }
+        });
+
+        // Charger les données au démarrage
+        loadData();
+    </script>
+</body>
+</html>
